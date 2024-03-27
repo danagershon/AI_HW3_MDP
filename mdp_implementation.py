@@ -52,8 +52,36 @@ def get_states(mdp):
                 yield (row, col)
 
 
-def bellman_eq(mdp, U, state):
-    state_reward = float(mdp.board[state[0]][state[1]])
+def get_state_reward(mdp, state):
+    row, col = state
+    if mdp.board[row][col] == 'WALL':
+        return None
+    return float(mdp.board[row][col])
+
+
+def get_initialized_utility(mdp):
+    u_init = [[0.0] * mdp.num_col for _ in range(mdp.num_row)]
+    for terminal_state in mdp.terminal_states:
+        row, col = terminal_state
+        u_init[row][col] = get_state_reward(mdp, terminal_state)  # terminal state utility is its reward value only
+
+    return u_init
+
+
+def get_state_util_under_policy(mdp, policy, util, state):
+    row, col = state
+    neigh_states = [mdp.step(state, action) for action in mdp.actions]
+    policy_action = policy[row][col]
+    neigh_probs = mdp.transition_function[policy_action]
+    state_reward = get_state_reward(mdp, state)
+
+    # R(s) + gamma * sum(P(s'|s,policy(s)) * U(s') for s' in a successors)
+    avg_action_util = sum(prob * util[neigh[0]][neigh[1]] for prob, neigh in zip(neigh_probs, neigh_states))
+    return state_reward + mdp.gamma * avg_action_util, avg_action_util
+
+
+def bellman_eq(mdp, util, state):
+    state_reward = get_state_reward(mdp, state)
     max_avg_util = float("-inf")
     best_action = None
     next_states = [mdp.step(state, action) for action in mdp.actions]
@@ -65,7 +93,7 @@ def bellman_eq(mdp, U, state):
     for action in mdp.actions:
         avg_util_from_action = 0
         for next_state, prob in zip(next_states, mdp.transition_function[action]):
-            avg_util_from_action += prob * U[next_state[0]][next_state[1]]
+            avg_util_from_action += prob * util[next_state[0]][next_state[1]]
         if avg_util_from_action > max_avg_util:
             best_action = action
             max_avg_util = avg_util_from_action
@@ -82,20 +110,20 @@ def value_iteration(mdp, U_init, epsilon=10 ** (-3)):
     # run the value iteration algorithm and
     # return: the U obtained at the end of the algorithms' run.
 
-    next_U = deepcopy(U_init)
+    next_util = deepcopy(U_init)
 
     while True:
-        U = deepcopy(next_U)
+        util = deepcopy(next_util)
         delta = 0
         states = get_states(mdp)
         for state in states:
             row, col = state
-            next_U[row][col], _, _, _ = bellman_eq(mdp, U, state)
-            delta = max(delta, abs(next_U[row][col] - U[row][col]))
+            next_util[row][col], _, _, _ = bellman_eq(mdp, util, state)
+            delta = max(delta, abs(next_util[row][col] - util[row][col]))
         if delta < epsilon * (1 - mdp.gamma) / mdp.gamma:
             break
 
-    return U
+    return util
 
 
 def get_policy(mdp, U):
@@ -108,7 +136,7 @@ def get_policy(mdp, U):
     states = get_states(mdp)
     for state in states:
         if state in mdp.terminal_states:
-            continue
+            continue  # policy must give terminal states None as the action
         row, col = state
         _, best_action, _, _ = bellman_eq(mdp, U, state)
         policy[row][col] = best_action
@@ -121,33 +149,28 @@ def policy_evaluation(mdp, policy):
     # Given the mdp, and a policy
     # return: the utility U(s) of each state s
 
-    U_init = [[0.0] * mdp.num_col for _ in range(mdp.num_row)]
-    for terminal_state in mdp.terminal_states:
-        row, col = terminal_state
-        U_init[row][col] = float(mdp.board[row][col])
+    u_init = get_initialized_utility(mdp)
 
-    epsilon = 10 ** (-3)
-    U = deepcopy(U_init)
+    epsilon = 10 ** (-3)  # error tolerance, like in value iteration
+    util = deepcopy(u_init)
+
+    # the utility derived from the policy will be improved iteratively
 
     while True:
-        next_U = deepcopy(U_init)
+        next_util = deepcopy(u_init)
         delta = 0
         states = get_states(mdp)
         for state in states:
             if state in mdp.terminal_states:
-                continue
+                continue  # utility was already initialized as state reward
             row, col = state
-            neigh_states = [mdp.step(state, action) for action in mdp.actions]
-            policy_action = policy[row][col]
-            neigh_probs = mdp.transition_function[policy_action]
-            state_reward = float(mdp.board[row][col])
-            next_U[row][col] = state_reward + mdp.gamma * sum(prob * U[neigh[0]][neigh[1]] for prob, neigh in zip(neigh_probs, neigh_states))
-            delta = max(delta, abs(next_U[row][col] - U[row][col]))
-        U = next_U
+            next_util[row][col], _ = get_state_util_under_policy(mdp, policy, util, state)
+            delta = max(delta, abs(next_util[row][col] - util[row][col]))
+        util = next_util
         if delta < epsilon * (1 - mdp.gamma) / mdp.gamma:
             break
 
-    return U
+    return util
 
 
 def policy_iteration(mdp, policy_init):
@@ -160,7 +183,7 @@ def policy_iteration(mdp, policy_init):
     changed = True
 
     while changed:
-        U = policy_evaluation(mdp, policy)
+        util = policy_evaluation(mdp, policy)
         changed = False
         states = get_states(mdp)
         for state in states:
@@ -168,12 +191,9 @@ def policy_iteration(mdp, policy_init):
             if state in mdp.terminal_states:
                 policy[row][col] = None
                 continue
-            _, best_action, max_avg_util, _ = bellman_eq(mdp, U, state)
-            neigh_states = [mdp.step(state, action) for action in mdp.actions]
-            policy_action = policy[state[0]][state[1]]
-            neigh_probs = mdp.transition_function[policy_action]
-            policy_util = sum(prob * U[neigh[0]][neigh[1]] for prob, neigh in zip(neigh_probs, neigh_states))
-            if max_avg_util > policy_util:
+            _, best_action, max_action_util, _ = bellman_eq(mdp, util, state)
+            _, curr_action_util = get_state_util_under_policy(mdp, policy, util, state)
+            if max_action_util > curr_action_util:
                 policy[row][col] = best_action
                 changed = True
 
