@@ -1,7 +1,8 @@
 import argparse
 import os
 from mdp import MDP
-from mdp_implementation import value_iteration, get_policy, policy_evaluation, policy_iteration
+from mdp_implementation import value_iteration, get_policy, policy_evaluation, policy_iteration, \
+    get_all_policies, get_policy_for_different_rewards
 import mdp_rl_implementation
 
 
@@ -101,6 +102,13 @@ def example_driver():
     print("\nFinal policy:")
     policy_new = policy_iteration(mdp, policy)
     mdp.print_policy(policy_new)
+
+    num_policies = get_all_policies(mdp, U_new)
+    print(f"Number of policies: {num_policies}")
+
+    print("\nGet policy for different rewards:")
+    rewards = get_policy_for_different_rewards(mdp)
+    print(f"\nrewards at which policy changed:\n{rewards}\n")
 
     print("Done!")
 

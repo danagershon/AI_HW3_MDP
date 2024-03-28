@@ -251,14 +251,7 @@ def print_all_policies(mdp, policy_all_actions):
     print(res)
 
 
-def get_all_policies(mdp, U):  # You can add more input parameters as needed
-    # TODO:
-    # Given the mdp, and the utility value U (which satisfies the Bellman equation)
-    # print / display all the policies that maintain this value
-    # (a visualization must be performed to display all the policies)
-    #
-    # return: the number of different policies
-
+def get_policy_all_actions(mdp, U):
     policy_all_actions = [[None] * mdp.num_col for _ in range(mdp.num_row)]
     num_policies = 1
 
@@ -271,9 +264,34 @@ def get_all_policies(mdp, U):  # You can add more input parameters as needed
         policy_all_actions[row][col] = all_best_actions
         num_policies *= len(all_best_actions)
 
+    return policy_all_actions, num_policies
+
+
+def get_all_policies(mdp, U):  # You can add more input parameters as needed
+    # TODO:
+    # Given the mdp, and the utility value U (which satisfies the Bellman equation)
+    # print / display all the policies that maintain this value
+    # (a visualization must be performed to display all the policies)
+    #
+    # return: the number of different policies
+
+    policy_all_actions, num_policies = get_policy_all_actions(mdp, U)
+
     print_all_policies(mdp, policy_all_actions)
 
     return num_policies
+
+
+def did_policy_change(mdp, prev_policy_all_actions, curr_policy_all_actions):
+    for state in get_states(mdp):
+        if state not in mdp.terminal_states:
+            row, col = state
+            prev_policy_actions = set(prev_policy_all_actions[row][col])
+            curr_policy_actions = set(curr_policy_all_actions[row][col])
+            if curr_policy_actions != prev_policy_actions:
+                return True
+
+    return False
 
 
 def get_policy_for_different_rewards(mdp):  # You can add more input parameters as needed
@@ -281,8 +299,53 @@ def get_policy_for_different_rewards(mdp):  # You can add more input parameters 
     # Given the mdp
     # print / displays the optimal policy as a function of r
     # (reward values for any non-finite state)
-    #
 
-    # ====== YOUR CODE: ======
-    raise NotImplementedError
-    # ========================
+    from decimal import Decimal
+
+    r_min = Decimal('-5.0')
+    r_max = Decimal('5.0')
+    reward_jump = Decimal('0.01')
+    zero = Decimal('0.00')
+    rewards_in_which_policy_changed = []
+    mdp_copy = deepcopy(mdp)
+
+    def update_mdp_reward(new_reward):
+        for state in get_states(mdp_copy):
+            if state not in mdp_copy.terminal_states:
+                row, col = state
+                mdp_copy.board[row][col] = str(new_reward)
+
+    reward_to_check = r_min
+    update_mdp_reward(reward_to_check)
+    u_optimal = value_iteration(mdp_copy, get_initialized_utility(mdp_copy))
+    prev_policy_all_actions, _ = get_policy_all_actions(mdp, u_optimal)
+    reward_to_check += reward_jump
+
+    while reward_to_check < r_max:
+        update_mdp_reward(reward_to_check)
+        u_optimal = value_iteration(mdp_copy, get_initialized_utility(mdp_copy))
+        curr_policy_all_actions, _ = get_policy_all_actions(mdp_copy, u_optimal)
+        policy_changed = did_policy_change(mdp_copy, prev_policy_all_actions, curr_policy_all_actions)
+
+        if policy_changed:
+            prev_reward = rewards_in_which_policy_changed[-1] if rewards_in_which_policy_changed else None
+            if prev_reward:
+                print(f"\n{prev_reward} <= R(s) < {reward_to_check}:")
+            else:
+                print(f"\nR(s) < {reward_to_check}:")
+            print_all_policies(mdp, prev_policy_all_actions)
+
+            prev_policy_all_actions = curr_policy_all_actions
+            rewards_in_which_policy_changed.append(float(reward_to_check))
+
+        if reward_to_check < zero and (reward_to_check + reward_jump) >= zero:
+            reward_to_check = zero
+        else:
+            reward_to_check += reward_jump
+
+    prev_reward = rewards_in_which_policy_changed[-1] if rewards_in_which_policy_changed else float("-inf")
+    print(f"R(s) >= {prev_reward}:")
+    print_all_policies(mdp_copy, prev_policy_all_actions)
+
+    return rewards_in_which_policy_changed
+
