@@ -1,6 +1,7 @@
 from copy import deepcopy
 import numpy as np
 import random
+from termcolor import colored
 
 """
 def policy_evaluation_matrices(mdp, policy):
@@ -99,7 +100,8 @@ def bellman_eq(mdp, util, state):
             max_avg_util = avg_util_from_action
         avg_utils.append(avg_util_from_action)
 
-    all_best_actions = [action for action, avg_util in zip(mdp.actions, avg_utils) if avg_util == max_avg_util]
+    epsilon = 10 ** (-3)
+    all_best_actions = [action for action, avg_util in zip(mdp.actions, avg_utils) if abs(avg_util - max_avg_util) < epsilon]
 
     return state_reward + mdp.gamma * max_avg_util, best_action, max_avg_util, all_best_actions
 
@@ -203,6 +205,52 @@ def policy_iteration(mdp, policy_init):
 """For this functions, you can import what ever you want """
 
 
+def arrows_formatted_string(actions):
+    res = [[u" ", u" ", u"↑", u" ", u" "],
+           [u" ", u"←", u" ", u"→", u" "],
+           [u" ", u" ", u"↓", u" ", u" "]]
+
+    if 'UP' not in actions:
+        res[0][2] = u" "
+    if 'LEFT' not in actions:
+        res[1][1] = u" "
+    if 'RIGHT' not in actions:
+        res[1][3] = u" "
+    if 'DOWN' not in actions:
+        res[2][2] = u" "
+
+    return ["".join(res_row) for res_row in res]
+
+
+def print_all_policies(mdp, policy_all_actions):
+    cell_width = 5
+    cell_height = 3
+    empty_row = " " * cell_width
+    rows_separator = " " + "-" * mdp.num_col * (cell_width+2) + "\n"
+
+    state_to_str = {}
+
+    for r in range(mdp.num_row):
+        for c in range(mdp.num_col):
+            state_str = [empty_row] * cell_height
+            if mdp.board[r][c] == 'WALL' or (r, c) in mdp.terminal_states:
+                color = 'blue' if mdp.board[r][c] == 'WALL' else 'red'
+                state_str[1] = colored(mdp.board[r][c].center(cell_width, " "), color)
+            else:
+                state_str = arrows_formatted_string(policy_all_actions[r][c])
+            state_to_str[(r, c)] = state_str
+
+    res = rows_separator
+    for r in range(mdp.num_row):
+        for i in range(cell_height):
+            res += "| "
+            for c in range(mdp.num_col):
+                res += state_to_str[(r, c)][i] + " |"
+            res += '\n'
+        res += rows_separator
+    print(res)
+
+
 def get_all_policies(mdp, U):  # You can add more input parameters as needed
     # TODO:
     # Given the mdp, and the utility value U (which satisfies the Bellman equation)
@@ -210,39 +258,20 @@ def get_all_policies(mdp, U):  # You can add more input parameters as needed
     # (a visualization must be performed to display all the policies)
     #
     # return: the number of different policies
-    #
 
-    policy = [[random.choice(mdp.actions)] * mdp.num_col for _ in range(mdp.num_row)]
-    policy_all_actions = policy
-    changed = True
-
-    while changed:
-        U = policy_evaluation(mdp, policy)
-        changed = False
-        for row in range(mdp.num_row):
-            for col in range(mdp.num_col):
-                if mdp.board[row][col] == 'WALL':
-                    policy[row][col] = None
-                    policy_all_actions[row][col] = []
-                    continue
-                state = (row, col)
-                _, best_action, max_avg_util, best_actions = bellman_eq(mdp, U, state)
-                neigh_states = [mdp.step(state, action) for action in mdp.actions]
-                policy_action = policy[state[0]][state[1]]
-                neigh_probs = mdp.transition_function[policy_action]
-                policy_util = sum(prob * U[neigh[0]][neigh[1]] for prob, neigh in zip(neigh_probs, neigh_states))
-                if max_avg_util > policy_util:
-                    policy[row][col] = best_action
-                    policy_all_actions[row][col] = best_actions
-                    changed = True
-
+    policy_all_actions = [[None] * mdp.num_col for _ in range(mdp.num_row)]
     num_policies = 1
-    for row in range(mdp.num_row):
-        for col in range(mdp.num_col):
-            if mdp.board[row][col] != 'WALL':
-                num_policies *= len(policy_all_actions[row][col])
 
-    # add policies visualizations
+    states = get_states(mdp)
+    for state in states:
+        if state in mdp.terminal_states:
+            continue  # policy must give terminal states None as the action
+        row, col = state
+        _, _, _, all_best_actions = bellman_eq(mdp, U, state)
+        policy_all_actions[row][col] = all_best_actions
+        num_policies *= len(all_best_actions)
+
+    print_all_policies(mdp, policy_all_actions)
 
     return num_policies
 
