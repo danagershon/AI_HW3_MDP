@@ -3,48 +3,6 @@ import numpy as np
 import random
 from termcolor import colored
 
-"""
-def policy_evaluation_matrices(mdp, policy):
-    # TODO:
-    # Given the mdp, and a policy
-    # return: the utility U(s) of each state s
-    #
-
-    states = []
-    R_vector = []
-
-    for row in range(mdp.num_row):
-        for col in range(mdp.num_col):
-            if mdp.board[row][col] != 'WALL':
-                states.append((row, col))
-                state_reward = float(mdp.board[row][col])
-                R_vector.append(state_reward)
-
-    n = len(states)
-    P_matrix = []  # n x n matrix
-
-    for state in states:
-        state_P_row = [0] * n
-        if state not in mdp.terminal_states:
-            neigh_states = [mdp.step(state, action) for action in mdp.actions]
-            policy_action = policy[state[0]][state[1]]
-            neigh_probs = mdp.transition_function[policy_action]
-            for neigh_state, neigh_prob in zip(neigh_states, neigh_probs):
-                neigh_state_idx = states.index(neigh_state)
-                state_P_row[neigh_state_idx] = neigh_prob
-        P_matrix.append(state_P_row)
-
-    R_vector = np.array(R_vector, dtype=np.double)
-    P_matrix = np.array(P_matrix, dtype=np.double)
-
-    U_vector = np.linalg.solve(np.subtract(np.identity(n, dtype=np.double), mdp.gamma * P_matrix),  R_vector)
-    U = [[None] * mdp.num_col for _ in range(mdp.num_row)]
-    for state, state_util in zip(states, U_vector):
-        U[state[0]][state[1]] = state_util
-
-    return U
-"""
-
 
 def get_states(mdp):
     for row in range(mdp.num_row):
@@ -92,9 +50,8 @@ def bellman_eq(mdp, util, state):
         return state_reward, None, None, []
 
     for action in mdp.actions:
-        avg_util_from_action = 0
-        for next_state, prob in zip(next_states, mdp.transition_function[action]):
-            avg_util_from_action += prob * util[next_state[0]][next_state[1]]
+        avg_util_from_action = sum(prob * util[next_state[0]][next_state[1]]
+                                   for next_state, prob in zip(next_states, mdp.transition_function[action]))
         if avg_util_from_action > max_avg_util:
             best_action = action
             max_avg_util = avg_util_from_action
@@ -222,7 +179,7 @@ def arrows_formatted_string(actions):
     return ["".join(res_row) for res_row in res]
 
 
-def print_all_policies(mdp, policy_all_actions):
+def my_print_all_policies(mdp, policy_all_actions):
     cell_width = 5
     cell_height = 3
     empty_row = " " * cell_width
@@ -249,6 +206,21 @@ def print_all_policies(mdp, policy_all_actions):
             res += '\n'
         res += rows_separator
     print(res)
+
+
+def print_all_policies(mdp, policy_all_actions):
+    action_to_arrow = {'UP': u"↑", 'DOWN': u"↓", 'RIGHT': u"→", 'LEFT': u"←"}
+
+    states = get_states(mdp)
+    for state in states:
+        if state in mdp.terminal_states:
+            continue
+        row, col = state
+        all_best_actions = policy_all_actions[row][col]
+        arrows_str = "".join(action_to_arrow[action] for action in all_best_actions)
+        policy_all_actions[row][col] = arrows_str
+
+    mdp.print_policy(policy_all_actions)
 
 
 def get_policy_all_actions(mdp, U):
@@ -343,8 +315,11 @@ def get_policy_for_different_rewards(mdp):  # You can add more input parameters 
         else:
             reward_to_check += reward_jump
 
-    prev_reward = rewards_in_which_policy_changed[-1] if rewards_in_which_policy_changed else float("-inf")
-    print(f"R(s) >= {prev_reward}:")
+    prev_reward = rewards_in_which_policy_changed[-1] if rewards_in_which_policy_changed else None
+    if prev_reward:
+        print(f"R(s) >= {prev_reward}:")
+    else:
+        print(f"R(s) > {float('-inf')}:")
     print_all_policies(mdp_copy, prev_policy_all_actions)
 
     return rewards_in_which_policy_changed

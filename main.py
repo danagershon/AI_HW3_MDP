@@ -103,8 +103,9 @@ def example_driver():
     policy_new = policy_iteration(mdp, policy)
     mdp.print_policy(policy_new)
 
+    print(f"\nAll policies:")
     num_policies = get_all_policies(mdp, U_new)
-    print(f"Number of policies: {num_policies}")
+    print(f"\nNumber of policies: {num_policies}")
 
     print("\nGet policy for different rewards:")
     rewards = get_policy_for_different_rewards(mdp)
