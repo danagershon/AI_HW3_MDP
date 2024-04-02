@@ -57,8 +57,7 @@ def bellman_eq(mdp, util, state):
             max_avg_util = avg_util_from_action
         avg_utils.append(avg_util_from_action)
 
-    epsilon = 10 ** (-3)
-    all_best_actions = [action for action, avg_util in zip(mdp.actions, avg_utils) if abs(avg_util - max_avg_util) < epsilon]
+    all_best_actions = [action for action, avg_util in zip(mdp.actions, avg_utils) if round(avg_util, 2) == round(max_avg_util, 2)]
 
     return state_reward + mdp.gamma * max_avg_util, best_action, max_avg_util, all_best_actions
 
@@ -162,52 +161,6 @@ def policy_iteration(mdp, policy_init):
 """For this functions, you can import what ever you want """
 
 
-def arrows_formatted_string(actions):
-    res = [[u" ", u" ", u"↑", u" ", u" "],
-           [u" ", u"←", u" ", u"→", u" "],
-           [u" ", u" ", u"↓", u" ", u" "]]
-
-    if 'UP' not in actions:
-        res[0][2] = u" "
-    if 'LEFT' not in actions:
-        res[1][1] = u" "
-    if 'RIGHT' not in actions:
-        res[1][3] = u" "
-    if 'DOWN' not in actions:
-        res[2][2] = u" "
-
-    return ["".join(res_row) for res_row in res]
-
-
-def my_print_all_policies(mdp, policy_all_actions):
-    cell_width = 5
-    cell_height = 3
-    empty_row = " " * cell_width
-    rows_separator = " " + "-" * mdp.num_col * (cell_width+2) + "\n"
-
-    state_to_str = {}
-
-    for r in range(mdp.num_row):
-        for c in range(mdp.num_col):
-            state_str = [empty_row] * cell_height
-            if mdp.board[r][c] == 'WALL' or (r, c) in mdp.terminal_states:
-                color = 'blue' if mdp.board[r][c] == 'WALL' else 'red'
-                state_str[1] = colored(mdp.board[r][c].center(cell_width, " "), color)
-            else:
-                state_str = arrows_formatted_string(policy_all_actions[r][c])
-            state_to_str[(r, c)] = state_str
-
-    res = rows_separator
-    for r in range(mdp.num_row):
-        for i in range(cell_height):
-            res += "| "
-            for c in range(mdp.num_col):
-                res += state_to_str[(r, c)][i] + " |"
-            res += '\n'
-        res += rows_separator
-    print(res)
-
-
 def print_all_policies(mdp, policy_all_actions):
     action_to_arrow = {'UP': u"↑", 'DOWN': u"↓", 'RIGHT': u"→", 'LEFT': u"←"}
 
@@ -301,7 +254,7 @@ def get_policy_for_different_rewards(mdp):  # You can add more input parameters 
 
         if policy_changed:
             prev_reward = rewards_in_which_policy_changed[-1] if rewards_in_which_policy_changed else None
-            if prev_reward:
+            if prev_reward is not None:
                 print(f"\n{prev_reward} <= R(s) < {reward_to_check}:")
             else:
                 print(f"\nR(s) < {reward_to_check}:")
@@ -310,13 +263,10 @@ def get_policy_for_different_rewards(mdp):  # You can add more input parameters 
             prev_policy_all_actions = curr_policy_all_actions
             rewards_in_which_policy_changed.append(float(reward_to_check))
 
-        if reward_to_check < zero and (reward_to_check + reward_jump) >= zero:
-            reward_to_check = zero
-        else:
-            reward_to_check += reward_jump
+        reward_to_check += reward_jump
 
     prev_reward = rewards_in_which_policy_changed[-1] if rewards_in_which_policy_changed else None
-    if prev_reward:
+    if prev_reward is not None:
         print(f"R(s) >= {prev_reward}:")
     else:
         print(f"R(s) > {float('-inf')}:")
