@@ -39,7 +39,7 @@ def get_state_util_under_policy(mdp, policy, util, state):
     return state_reward + mdp.gamma * avg_action_util, avg_action_util
 
 
-def bellman_eq(mdp, util, state):
+def bellman_eq(mdp, util, state, epsilon=10 ** (-3)):
     state_reward = get_state_reward(mdp, state)
     max_avg_util = float("-inf")
     best_action = None
@@ -57,7 +57,10 @@ def bellman_eq(mdp, util, state):
             max_avg_util = avg_util_from_action
         avg_utils.append(avg_util_from_action)
 
-    all_best_actions = [action for action, avg_util in zip(mdp.actions, avg_utils) if round(avg_util, 2) == round(max_avg_util, 2)]
+    x = len(str(epsilon).split(".")[1]) + 1
+
+    all_best_actions = [action for action, avg_util in zip(mdp.actions, avg_utils)
+                        if abs(round(max_avg_util, x) - round(avg_util, x)) < epsilon]
 
     return state_reward + mdp.gamma * max_avg_util, best_action, max_avg_util, all_best_actions
 
@@ -176,7 +179,7 @@ def print_all_policies(mdp, policy_all_actions):
     mdp.print_policy(policy_all_actions)
 
 
-def get_policy_all_actions(mdp, U):
+def get_policy_all_actions(mdp, U, epsilon=10 ** (-3)):
     policy_all_actions = [[None] * mdp.num_col for _ in range(mdp.num_row)]
     num_policies = 1
 
@@ -185,14 +188,14 @@ def get_policy_all_actions(mdp, U):
         if state in mdp.terminal_states:
             continue  # policy must give terminal states None as the action
         row, col = state
-        _, _, _, all_best_actions = bellman_eq(mdp, U, state)
+        _, _, _, all_best_actions = bellman_eq(mdp, U, state, epsilon)
         policy_all_actions[row][col] = all_best_actions
         num_policies *= len(all_best_actions)
 
     return policy_all_actions, num_policies
 
 
-def get_all_policies(mdp, U):  # You can add more input parameters as needed
+def get_all_policies(mdp, U, epsilon=10 ** (-3)):  # You can add more input parameters as needed
     # TODO:
     # Given the mdp, and the utility value U (which satisfies the Bellman equation)
     # print / display all the policies that maintain this value
@@ -200,7 +203,7 @@ def get_all_policies(mdp, U):  # You can add more input parameters as needed
     #
     # return: the number of different policies
 
-    policy_all_actions, num_policies = get_policy_all_actions(mdp, U)
+    policy_all_actions, num_policies = get_policy_all_actions(mdp, U, epsilon)
 
     print_all_policies(mdp, policy_all_actions)
 
@@ -219,7 +222,7 @@ def did_policy_change(mdp, prev_policy_all_actions, curr_policy_all_actions):
     return False
 
 
-def get_policy_for_different_rewards(mdp):  # You can add more input parameters as needed
+def get_policy_for_different_rewards(mdp, epsilon=10 ** (-3)):  # You can add more input parameters as needed
     # TODO:
     # Given the mdp
     # print / displays the optimal policy as a function of r
@@ -243,13 +246,13 @@ def get_policy_for_different_rewards(mdp):  # You can add more input parameters 
     reward_to_check = r_min
     update_mdp_reward(reward_to_check)
     u_optimal = value_iteration(mdp_copy, get_initialized_utility(mdp_copy))
-    prev_policy_all_actions, _ = get_policy_all_actions(mdp, u_optimal)
+    prev_policy_all_actions, _ = get_policy_all_actions(mdp, u_optimal, epsilon)
     reward_to_check += reward_jump
 
     while reward_to_check < r_max:
         update_mdp_reward(reward_to_check)
         u_optimal = value_iteration(mdp_copy, get_initialized_utility(mdp_copy))
-        curr_policy_all_actions, _ = get_policy_all_actions(mdp_copy, u_optimal)
+        curr_policy_all_actions, _ = get_policy_all_actions(mdp_copy, u_optimal, epsilon)
         policy_changed = did_policy_change(mdp_copy, prev_policy_all_actions, curr_policy_all_actions)
 
         if policy_changed:

@@ -104,7 +104,10 @@ def example_driver():
     mdp.print_policy(policy_new)
 
     print(f"\nAll policies:")
-    num_policies = get_all_policies(mdp, U_new)
+    U = [[0.749, 0.819, 0.876, 1.0],
+         [0.692, 0, 0.564, -1.0],
+         [0.623, 0.566, 0.518, 0.252]]
+    num_policies = get_all_policies(mdp, U)
     print(f"\nNumber of policies: {num_policies}")
 
     print("\nGet policy for different rewards:")
